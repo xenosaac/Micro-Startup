@@ -1,28 +1,43 @@
 # OpenBrowse Example
 
-This example shows how to point `Micro Startup` at the OpenBrowse repo.
-
-Example local config:
+Install Micro Startup into the OpenBrowse repo:
 
 ```bash
-cp config/project.env.example config/project.env
+cd /Users/isaaczhang/Desktop/AGENT/Project_OpenBrowse
+/Users/isaaczhang/Desktop/AGENT/Micro_Startup/install.sh
 ```
 
-Then set:
+Initialize and inspect the default crew:
 
 ```bash
-TARGET_REPO="/Users/isaaczhang/Desktop/AGENT/Project_OpenBrowse"
-ENGINEER_BRANCH="codex/claude-overnight"
-WORKING_LOG_REL="docs/working_log.md"
-PRODUCT_DOC_REL="docs/product_manager.md"
-DESIGN_DOC_REL="docs/ui_design.md"
-SESSION_NAME="claude-triad"
+./micro-startup init
+./micro-startup role list
+./micro-startup doctor
 ```
 
-After that, start the triad from the `Micro Startup` project:
+Add a custom advisor or writer:
 
 ```bash
-./scripts/triad_ctl.sh start
+./micro-startup role add qa --archetype advisor
+./micro-startup role add reviewer --archetype writer
 ```
 
-This leaves the OpenBrowse repo as the target repo, but moves the automation scaffold itself into a standalone, reusable project.
+Optional overrides:
+
+```bash
+cp .micro-startup/config.env.example .micro-startup/config.env
+```
+
+For example:
+
+```bash
+WRITER_BRANCH_PREFIX="codex/openbrowse"
+```
+
+Then start the crew runtime:
+
+```bash
+./micro-startup start
+```
+
+This keeps the automation fully inside the OpenBrowse repo while allowing the crew to grow beyond the original fixed triad.

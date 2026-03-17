@@ -1,3 +1,4 @@
+.micro-startup/
 config/project.env
 logs/*.log
 runtime/*.json

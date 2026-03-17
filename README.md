@@ -1,136 +1,190 @@
 # Micro Startup
 
-`Micro Startup` is a repo-local Claude Code automation scaffold for small startup teams.
+`Micro Startup` is a repo-embedded crew runtime for small startup teams.
 
-It is built around three roles:
-- `Product Lead`
-- `Design Lead`
-- `Engineer`
+It installs into a product repo and gives that repo one command:
 
-The model is intentionally simple:
-- Product Lead decides what matters next.
-- Design Lead decides how the UI and UX should behave.
-- Engineer is the only role that writes tracked product code.
-
-This keeps the workflow founder-mode and fast:
-- decision inputs can evolve continuously
-- code still moves in one verified stream
-- no heavy orchestration platform is required
-
-## What It Is
-
-This project is not a new daemon runtime.
-
-It is a thin, transparent workflow layer built from standard tools:
-- `tmux`
-- `caffeinate`
-- `claude -p`
-- repo-local prompts
-- repo-local working documents
-
-The novel part is the workflow contract, not the low-level primitives.
-
-## Project Layout
-
-```text
-Micro Startup/
-  config/
-    project.env.example
-  prompts/
-    engineer.md
-    product_lead.md
-    design_lead.md
-  scripts/
-    common.sh
-    engineer_once.sh
-    product_once.sh
-    design_once.sh
-    triad_ctl.sh
-  templates/
-    repo-docs/
-      working_log.md
-      product_lead.md
-      design_lead.md
-  examples/
-    openbrowse/
-      README.md
-  logs/
-  runtime/
+```bash
+./micro-startup <command>
 ```
 
-## How It Works
-
-`triad_ctl.sh` starts one tmux session with three loops:
-- `engineer`
+The default crew is still:
 - `product`
 - `design`
+- `engineer`
 
-All three loops run continuously, but only the Engineer writes tracked source code.
+But the runtime is no longer fixed to those three roles.
 
-When the target repo is dirty:
-- Engineer stays active and continues the unfinished task.
-- Product Lead and Design Lead back off until the worktree is clean again.
+You can add or remove roles, choose archetypes, and let multiple writers work in isolated git worktrees.
 
-When the target repo is clean:
-- Product Lead can refine priorities and acceptance criteria.
-- Design Lead can refine UI rules and design tasks.
-- Engineer reads those inputs and executes one verified increment at a time.
+## Quick Start
 
-## Setup
-
-1. Copy the repo-document templates into your target repo:
-   - `templates/repo-docs/working_log.md`
-   - `templates/repo-docs/product_lead.md`
-   - `templates/repo-docs/design_lead.md`
-
-2. Create a local config:
+From your product repo:
 
 ```bash
-cp config/project.env.example config/project.env
+/path/to/Micro_Startup/install.sh
+./micro-startup start
 ```
 
-3. Edit `config/project.env`:
-   - set `TARGET_REPO`
-   - adjust document paths if needed
-   - set your preferred branch name
-   - set the Claude binary path if needed
-
-4. Start the triad:
+Optional overrides:
 
 ```bash
-./scripts/triad_ctl.sh start
+cp .micro-startup/config.env.example .micro-startup/config.env
 ```
 
-Check status:
+## What Gets Installed
+
+After installation, your product repo contains:
+
+```text
+your-repo/
+  micro-startup
+  .micro-startup/
+    .gitignore
+    config.env.example
+    crew.env
+    roles/
+      product.env
+      design.env
+      engineer.env
+      ...
+    prompts/
+      product.md
+      design.md
+      engineer.md
+      ...
+    docs/
+      backlog.md
+      product.md
+      design.md
+      engineer.md
+      ...
+    scripts/
+      common.sh
+      role_once.sh
+      triad_ctl.sh
+    templates/
+      prompts/
+      repo-docs/
+      role-prompts/
+      role-docs/
+    logs/
+    runtime/
+    worktrees/
+```
+
+Tracked by git:
+- `crew.env`
+- `roles/`
+- `prompts/`
+- `docs/`
+
+Ignored locally by `.micro-startup/.gitignore`:
+- `logs/`
+- `runtime/`
+- `worktrees/`
+- `config.env`
+
+## Public Commands
+
+Main commands:
 
 ```bash
-./scripts/triad_ctl.sh status
-./scripts/triad_ctl.sh tail
+./micro-startup init
+./micro-startup doctor
+./micro-startup start
+./micro-startup stop
+./micro-startup restart
+./micro-startup status
+./micro-startup logs
+./micro-startup attach
 ```
 
-Stop it:
+Role management:
 
 ```bash
-./scripts/triad_ctl.sh stop
+./micro-startup role list
+./micro-startup role add qa --archetype advisor
+./micro-startup role add reviewer --archetype writer
+./micro-startup role remove qa
 ```
 
-## Assumptions
+You can also DIY roles manually by creating:
+- `.micro-startup/roles/<id>.env`
+- `.micro-startup/prompts/<id>.md`
+- `.micro-startup/docs/<id>.md`
 
+`doctor` and `start` auto-discover those manual roles.
+
+## Crew Model
+
+Supported archetypes:
+- `writer`: isolated git worktree, may edit product code, test, commit, and enter auto-merge
+- `planner`: runs in the main repo, may edit its own doc and `docs/backlog.md`
+- `advisor`: runs in the main repo, may edit only its own doc
+- `reviewer`: template-level reviewer, runtime behavior is the same as `advisor`
+
+Default runtime model:
+- multiple writers are allowed
+- each writer gets its own branch and worktree
+- writer branches use `codex/micro-startup/<role-id>` by default
+- main-branch integration is local-only and uses automatic `cherry-pick`
+- runtime state lives in `.micro-startup/runtime/*.state`
+
+## Backlog Format
+
+`docs/backlog.md` is the tracked task source.
+
+One task per line:
+
+```text
+- TASK-001 | target=any-writer | priority=P1 | title=Implement onboarding CTA
+```
+
+Supported `target=` values:
+- `any-writer`
+- `role:<role-id>`
+- `label:<label>`
+
+Writers do not auto-edit `backlog.md`.
+Claim, running, verified, merged, conflict, and repair state live in `.micro-startup/runtime/`.
+
+## Runtime Rules
+
+When the runtime is running:
+- each active role gets one tmux window
+- planners are serialized behind a backlog lock
+- writers claim tasks from `backlog.md`
+- writers work only inside their own git worktrees
+- writers auto-merge back to `BASE_BRANCH` only after a local clean commit
+- merge conflicts abort immediately and turn into runtime repair tasks
+
+## Dependencies
+
+Current assumptions:
 - macOS
-- `tmux` installed
-- `caffeinate` available
-- Claude Code CLI already authenticated in the shell environment where you run the loops
+- `tmux`
+- `caffeinate`
+- Claude Code CLI installed and authenticated
 
-## Suggested Open-Source Direction
+`./micro-startup doctor` checks these dependencies plus role schema, backlog format, base branch, and worktree readiness.
 
-Good default roles for small startup teams:
-- `Product Lead`
-- `Design Lead`
-- `Engineer`
+## Migration
 
-Good future optional roles:
-- `Reviewer`
-- `QA / Reliability`
-- `Specialist Engineer`
+If an older three-role install is present, `init` and `doctor` migrate it automatically:
+- `product_lead.md -> product.md`
+- `design_lead.md -> design.md`
+- `working_log.md -> engineer.md`
 
-But this repo intentionally starts with the smallest useful set.
+The runtime keeps old content and writes the new crew structure around it.
+
+## Source Repo Layout
+
+This source repo ships:
+- `scripts/` for the installed runtime
+- `prompts/` for default role prompts
+- `templates/repo-docs/` for default tracked docs
+- `templates/role-prompts/` and `templates/role-docs/` for `role add`
+- `config/project.env.example` for optional overrides
+
+See [examples/openbrowse/README.md](examples/openbrowse/README.md) for an OpenBrowse install example.

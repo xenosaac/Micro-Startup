@@ -1,0 +1,16 @@
+#!/bin/zsh
+
+emulate -LR zsh
+setopt pipefail nounset
+
+SCRIPT_DIR="${0:A:h}"
+CONTROL_SCRIPT="${SCRIPT_DIR}/.micro-startup/scripts/triad_ctl.sh"
+
+if [[ ! -x "${CONTROL_SCRIPT}" ]]; then
+  print -r -- "Micro Startup is not installed in this repo."
+  print -r -- "Expected internal control script: ${CONTROL_SCRIPT}"
+  print -r -- "Install it from the Micro Startup source repo first."
+  exit 1
+fi
+
+exec "${CONTROL_SCRIPT}" "$@"
